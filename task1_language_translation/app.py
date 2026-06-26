@@ -1,66 +1,60 @@
 import streamlit as st
-from googletrans import Translator, LANGUAGES
-import pyttsx3
 import threading
+from deep_translator import GoogleTranslator
+from deep_translator.constants import GOOGLE_LANGUAGES_TO_CODES
+import pyttsx3
 
-translator = Translator()
+# name → code, e.g. "English" → "en"
+lang_map     = {v.title(): k for k, v in GOOGLE_LANGUAGES_TO_CODES.items()}
+sorted_langs = sorted(lang_map.keys())
 
-LANGUAGE_OPTIONS = {v.title(): k for k, v in LANGUAGES.items()}
+st.set_page_config(page_title="Language Translator", page_icon="🌐", layout="centered")
 
-st.set_page_config(page_title="AI Language Translator", page_icon="🌐", layout="centered")
-
-st.title("🌐 AI Language Translation Tool")
-st.markdown("Translate text between 100+ languages instantly using Google Translate API.")
+st.title("🌐 Language Translation Tool")
+st.write("Pick your languages, type some text, and hit Translate. That's it.")
 
 col1, col2 = st.columns(2)
 with col1:
-    source_lang_name = st.selectbox("Source Language", ["Auto Detect"] + sorted(LANGUAGE_OPTIONS.keys()))
+    source_choice = st.selectbox("From", ["Auto Detect"] + sorted_langs)
 with col2:
-    target_lang_name = st.selectbox("Target Language", sorted(LANGUAGE_OPTIONS.keys()), index=sorted(LANGUAGE_OPTIONS.keys()).index("English"))
+    default_idx = sorted_langs.index("English") if "English" in sorted_langs else 0
+    target_choice = st.selectbox("To", sorted_langs, index=default_idx)
 
-input_text = st.text_area("Enter text to translate:", height=150, placeholder="Type or paste your text here...")
+text_input = st.text_area("Your text:", height=160,
+                           placeholder="Paste or type anything here...")
 
-col_btn1, col_btn2 = st.columns([1, 4])
-with col_btn1:
-    translate_clicked = st.button("Translate", type="primary", use_container_width=True)
+go = st.button("Translate", type="primary")
 
-if translate_clicked:
-    if not input_text.strip():
-        st.warning("Please enter some text to translate.")
+if go:
+    if not text_input.strip():
+        st.warning("Nothing to translate — write something first.")
     else:
-        with st.spinner("Translating..."):
-            src = "auto" if source_lang_name == "Auto Detect" else LANGUAGE_OPTIONS[source_lang_name]
-            dest = LANGUAGE_OPTIONS[target_lang_name]
+        src_code  = "auto" if source_choice == "Auto Detect" else lang_map[source_choice]
+        dest_code = lang_map[target_choice]
+
+        with st.spinner("Working on it..."):
             try:
-                result = translator.translate(input_text, src=src, dest=dest)
-                st.session_state["translated"] = result.text
-                detected = LANGUAGES.get(result.src, result.src).title()
-                st.session_state["detected_lang"] = detected
-            except Exception as e:
-                st.error(f"Translation failed: {e}")
+                result = GoogleTranslator(source=src_code, target=dest_code).translate(
+                    text_input.strip()
+                )
+                st.session_state["result"] = result
+            except Exception as err:
+                st.error(f"Translation failed: {err}")
 
-if "translated" in st.session_state:
-    st.markdown("---")
-    if source_lang_name == "Auto Detect":
-        st.caption(f"Detected source language: **{st.session_state['detected_lang']}**")
+if "result" in st.session_state:
+    st.divider()
+    st.subheader("Translation")
+    st.text_area("", value=st.session_state["result"], height=160, key="output_box")
+    st.code(st.session_state["result"], language=None)
+    st.caption("Select all in the box above to copy")
 
-    st.subheader("Translated Text")
-    st.text_area("Result:", value=st.session_state["translated"], height=150, key="result_area")
+    if st.button("🔊 Read aloud"):
+        def speak(txt):
+            engine = pyttsx3.init()
+            engine.say(txt)
+            engine.runAndWait()
+        threading.Thread(target=speak, args=(st.session_state["result"],)).start()
+        st.info("Reading aloud...")
 
-    col_copy, col_tts = st.columns(2)
-    with col_copy:
-        st.code(st.session_state["translated"], language=None)
-        st.caption("Copy the text above")
-
-    with col_tts:
-        if st.button("🔊 Read Aloud (English output only)"):
-            def speak(text):
-                engine = pyttsx3.init()
-                engine.say(text)
-                engine.runAndWait()
-            t = threading.Thread(target=speak, args=(st.session_state["translated"],))
-            t.start()
-            st.info("Playing audio...")
-
-st.markdown("---")
-st.caption("Powered by Google Translate API · Built with Streamlit")
+st.divider()
+st.caption("Uses Google Translate under the hood · Streamlit UI")

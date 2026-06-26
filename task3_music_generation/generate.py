@@ -1,8 +1,17 @@
 """
-Music Generation with AI using LSTM.
-Train: python generate.py --mode train
-Generate: python generate.py --mode generate --output output.mid
+AI Music Generator — LSTM-based MIDI composer.
+
+Modes:
+  demo      : quick algorithmic melody, no model needed
+  train     : learn from your MIDI files
+  generate  : compose new music using a trained model
+
+Examples:
+  python generate.py --mode demo
+  python generate.py --mode train  --data midi_data/ --epochs 80
+  python generate.py --mode generate --output my_song.mid --temperature 0.9
 """
+
 import argparse
 import os
 import pickle
@@ -11,63 +20,64 @@ import numpy as np
 
 try:
     from music21 import converter, instrument, note, chord, stream
-    MUSIC21_AVAILABLE = True
+    MUSIC21_OK = True
 except ImportError:
-    MUSIC21_AVAILABLE = False
+    MUSIC21_OK = False
 
 try:
     import tensorflow as tf
     from tensorflow.keras.models import Sequential, load_model
     from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization
     from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
-    TF_AVAILABLE = True
+    TF_OK = True
 except ImportError:
-    TF_AVAILABLE = False
+    TF_OK = False
 
 
-# ── Data helpers ──────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# MIDI parsing
+# ──────────────────────────────────────────────────────────────────────────────
 
-def parse_midi_folder(folder: str):
-    """Extract note/chord sequences from all MIDI files in a folder."""
-    notes = []
+def extract_notes(folder):
+    all_notes = []
     for root, _, files in os.walk(folder):
         for fname in files:
-            if not fname.endswith((".mid", ".midi")):
+            if not fname.lower().endswith((".mid", ".midi")):
                 continue
-            path = os.path.join(root, fname)
+            fpath = os.path.join(root, fname)
             try:
-                midi = converter.parse(path)
-                parts = instrument.partitionByInstrument(midi)
-                elements = parts.parts[0].recurse() if parts else midi.flat.notes
-                for el in elements:
+                midi   = converter.parse(fpath)
+                parts  = instrument.partitionByInstrument(midi)
+                source = parts.parts[0].recurse() if parts else midi.flatten().notes
+                for el in source:
                     if isinstance(el, note.Note):
-                        notes.append(str(el.pitch))
+                        all_notes.append(str(el.pitch))
                     elif isinstance(el, chord.Chord):
-                        notes.append(".".join(str(n) for n in el.normalOrder))
-            except Exception as e:
-                print(f"  Skipping {fname}: {e}")
-    return notes
+                        all_notes.append(".".join(str(n) for n in el.normalOrder))
+            except Exception as exc:
+                print(f"  skipped {fname} ({exc})")
+    return all_notes
 
 
-def build_sequences(notes, seq_len=100):
-    vocab = sorted(set(notes))
-    note_to_int = {n: i for i, n in enumerate(vocab)}
-    int_to_note = {i: n for n, i in note_to_int.items()}
+def make_sequences(notes, seq_len=100):
+    vocab        = sorted(set(notes))
+    note_to_int  = {n: i for i, n in enumerate(vocab)}
+    int_to_note  = {i: n for n, i in note_to_int.items()}
+    n_vocab      = len(vocab)
 
-    X, y = [], []
+    X_raw, y_raw = [], []
     for i in range(len(notes) - seq_len):
-        seq_in = notes[i: i + seq_len]
-        seq_out = notes[i + seq_len]
-        X.append([note_to_int[n] for n in seq_in])
-        y.append(note_to_int[seq_out])
+        X_raw.append([note_to_int[n] for n in notes[i: i + seq_len]])
+        y_raw.append(note_to_int[notes[i + seq_len]])
 
-    n_vocab = len(vocab)
-    X = np.reshape(X, (len(X), seq_len, 1)) / float(n_vocab)
-    y = tf.keras.utils.to_categorical(y, num_classes=n_vocab)
+    X = np.reshape(X_raw, (len(X_raw), seq_len, 1)) / float(n_vocab)
+    y = tf.keras.utils.to_categorical(y_raw, num_classes=n_vocab)
     return X, y, note_to_int, int_to_note, n_vocab
 
 
-# ── Model ─────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Model
+# ──────────────────────────────────────────────────────────────────────────────
 
 def build_model(seq_len, n_vocab):
     model = Sequential([
@@ -88,132 +98,140 @@ def build_model(seq_len, n_vocab):
     return model
 
 
-# ── Generation ────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Generation
+# ──────────────────────────────────────────────────────────────────────────────
 
-def generate_notes(model, int_to_note, note_to_int, n_vocab, seq_len=100, n_generate=500, temperature=1.0):
-    start_idx = random.randint(0, n_vocab - seq_len - 1)
-    pattern = list(range(start_idx, start_idx + seq_len))
-    generated = []
+def generate_sequence(model, int_to_note, n_vocab, seq_len=100, length=500, temperature=1.0):
+    # pick a random seed position within the vocab range
+    start = random.randint(0, max(0, n_vocab - seq_len - 1))
+    pattern = list(range(start, start + seq_len))
+    output = []
 
-    for _ in range(n_generate):
+    for _ in range(length):
         x = np.reshape(pattern, (1, len(pattern), 1)) / float(n_vocab)
-        prediction = model.predict(x, verbose=0)[0]
-        # Temperature sampling
-        prediction = np.log(prediction + 1e-8) / temperature
-        prediction = np.exp(prediction) / np.sum(np.exp(prediction))
-        idx = np.random.choice(len(prediction), p=prediction)
-        generated.append(int_to_note[idx])
-        pattern.append(idx)
+        raw = model.predict(x, verbose=0)[0].astype("float64")
+
+        # temperature scaling to control randomness
+        raw = np.log(raw + 1e-8) / temperature
+        probs = np.exp(raw) / np.sum(np.exp(raw))
+
+        chosen = np.random.choice(len(probs), p=probs)
+        output.append(int_to_note[chosen])
+        pattern.append(chosen)
         pattern = pattern[1:]
 
-    return generated
+    return output
 
 
-def notes_to_midi(notes_list, output_path="output.mid"):
+def notes_to_midi(note_list, out_path="output.mid"):
     offset = 0
-    output_notes = []
-    for pattern in notes_list:
-        if "." in pattern or pattern.isdigit():
-            # chord
-            chord_notes = [note.Note(int(n)) for n in pattern.split(".")]
-            for cn in chord_notes:
-                cn.storedInstrument = instrument.Piano()
-            new_chord = chord.Chord(chord_notes)
-            new_chord.offset = offset
-            output_notes.append(new_chord)
+    elements = []
+
+    for token in note_list:
+        if "." in token or token.isdigit():
+            ns = [note.Note(int(p)) for p in token.split(".")]
+            for n in ns:
+                n.storedInstrument = instrument.Piano()
+            c = chord.Chord(ns)
+            c.offset = offset
+            elements.append(c)
         else:
-            new_note = note.Note(pattern)
-            new_note.offset = offset
-            new_note.storedInstrument = instrument.Piano()
-            output_notes.append(new_note)
+            n = note.Note(token)
+            n.offset = offset
+            n.storedInstrument = instrument.Piano()
+            elements.append(n)
         offset += 0.5
 
-    midi_stream = stream.Stream(output_notes)
-    midi_stream.write("midi", fp=output_path)
-    print(f"MIDI saved to {output_path}")
+    s = stream.Stream(elements)
+    s.write("midi", fp=out_path)
+    print(f"Saved → {out_path}")
 
 
-# ── Demo generation (no training data) ───────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# Demo (no training needed)
+# ──────────────────────────────────────────────────────────────────────────────
 
-def generate_demo_midi(output_path="output_demo.mid"):
-    """Generate a simple algorithmic melody without a trained model."""
-    scale = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
-    output_notes = []
-    offset = 0
+def run_demo(out_path="demo.mid"):
     random.seed(42)
+    c_major = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"]
+    elements = []
+    offset   = 0.0
+
     for _ in range(64):
-        pitch = random.choice(scale)
-        new_note = note.Note(pitch)
-        new_note.offset = offset
-        new_note.quarterLength = random.choice([0.5, 1.0])
-        new_note.storedInstrument = instrument.Piano()
-        output_notes.append(new_note)
-        offset += new_note.quarterLength
-    midi_stream = stream.Stream(output_notes)
-    midi_stream.write("midi", fp=output_path)
-    print(f"Demo MIDI saved to {output_path}")
+        pitch  = random.choice(c_major)
+        length = random.choice([0.5, 1.0])
+        n = note.Note(pitch)
+        n.offset       = offset
+        n.quarterLength = length
+        n.storedInstrument = instrument.Piano()
+        elements.append(n)
+        offset += length
+
+    s = stream.Stream(elements)
+    s.write("midi", fp=out_path)
+    print(f"Demo saved → {out_path}")
 
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# CLI entry point
+# ──────────────────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Music Generator (LSTM)")
-    parser.add_argument("--mode", choices=["train", "generate", "demo"], default="demo")
-    parser.add_argument("--data", default="midi_data", help="Folder with MIDI training files")
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--seq-len", type=int, default=100)
-    parser.add_argument("--n-generate", type=int, default=500)
+    parser = argparse.ArgumentParser(description="LSTM Music Generator")
+    parser.add_argument("--mode",        choices=["train", "generate", "demo"], default="demo")
+    parser.add_argument("--data",        default="midi_data")
+    parser.add_argument("--epochs",      type=int,   default=100)
+    parser.add_argument("--seq-len",     type=int,   default=100)
+    parser.add_argument("--n-generate",  type=int,   default=500)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--output", default="output.mid")
-    parser.add_argument("--model-path", default="music_model.h5")
+    parser.add_argument("--output",      default="output.mid")
+    parser.add_argument("--model-path",  default="music_model.h5")
     args = parser.parse_args()
 
-    if not MUSIC21_AVAILABLE:
-        print("music21 not installed. Run: pip install music21")
+    if not MUSIC21_OK:
+        print("Install music21 first:  pip install music21")
         return
 
     if args.mode == "demo":
-        print("Generating demo MIDI (no training required)...")
-        generate_demo_midi(args.output)
+        print("Generating demo melody...")
+        run_demo(args.output)
         return
 
-    if not TF_AVAILABLE:
-        print("TensorFlow not installed. Run: pip install tensorflow")
+    if not TF_OK:
+        print("Install TensorFlow first:  pip install tensorflow")
         return
 
     if args.mode == "train":
-        print(f"Parsing MIDI files from '{args.data}'...")
-        notes = parse_midi_folder(args.data)
+        print(f"Reading MIDI files from: {args.data}")
+        notes = extract_notes(args.data)
         if len(notes) < args.seq_len + 1:
-            print(f"Not enough notes found ({len(notes)}). Need at least {args.seq_len + 1}.")
+            print(f"Only {len(notes)} notes found — need at least {args.seq_len + 1}.")
             return
-        print(f"Total notes: {len(notes)}, Vocabulary: {len(set(notes))}")
+        print(f"Notes: {len(notes)}  |  Vocab size: {len(set(notes))}")
 
-        X, y, note_to_int, int_to_note, n_vocab = build_sequences(notes, args.seq_len)
+        X, y, n2i, i2n, n_vocab = make_sequences(notes, args.seq_len)
         with open("note_mappings.pkl", "wb") as f:
-            pickle.dump((note_to_int, int_to_note, n_vocab), f)
+            pickle.dump((n2i, i2n, n_vocab), f)
 
         model = build_model(args.seq_len, n_vocab)
         model.summary()
-
-        callbacks = [
+        model.fit(X, y, epochs=args.epochs, batch_size=64, callbacks=[
             ModelCheckpoint(args.model_path, save_best_only=True, monitor="loss"),
             EarlyStopping(patience=10, monitor="loss"),
-        ]
-        model.fit(X, y, epochs=args.epochs, batch_size=64, callbacks=callbacks)
-        print(f"Model saved to {args.model_path}")
+        ])
+        print(f"Model saved → {args.model_path}")
 
     elif args.mode == "generate":
         if not os.path.exists(args.model_path) or not os.path.exists("note_mappings.pkl"):
-            print("No trained model found. Run with --mode train first, or use --mode demo.")
+            print("No trained model found. Run --mode train first, or try --mode demo.")
             return
         model = load_model(args.model_path)
         with open("note_mappings.pkl", "rb") as f:
-            note_to_int, int_to_note, n_vocab = pickle.load(f)
+            n2i, i2n, n_vocab = pickle.load(f)
         print(f"Generating {args.n_generate} notes...")
-        generated = generate_notes(model, int_to_note, note_to_int, n_vocab,
-                                    args.seq_len, args.n_generate, args.temperature)
-        notes_to_midi(generated, args.output)
+        output = generate_sequence(model, i2n, n_vocab, args.seq_len, args.n_generate, args.temperature)
+        notes_to_midi(output, args.output)
 
 
 if __name__ == "__main__":

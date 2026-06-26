@@ -1,10 +1,13 @@
 """
-Real-time Object Detection & Tracking with YOLOv8 + ByteTrack/SORT.
+Real-time object detection and tracking using YOLOv8 + ByteTrack.
+
 Usage:
-  Webcam:    python detect.py
-  Video:     python detect.py --source path/to/video.mp4
-  Image:     python detect.py --source path/to/image.jpg --no-track
+  python detect.py                          # webcam
+  python detect.py --source video.mp4       # video file
+  python detect.py --source img.jpg --no-track   # image, no tracking
+  python detect.py --model yolov8m.pt --conf 0.5 --save
 """
+
 import argparse
 import cv2
 import time
@@ -12,119 +15,108 @@ from collections import defaultdict
 
 try:
     from ultralytics import YOLO
-    YOLO_AVAILABLE = True
 except ImportError:
-    YOLO_AVAILABLE = False
+    raise SystemExit("ultralytics not found — run:  pip install ultralytics")
 
-# Color palette for tracking IDs
-PALETTE = [
-    (255, 56, 56), (255, 157, 151), (255, 112, 31), (255, 178, 29),
-    (207, 210, 49), (72, 249, 10), (146, 204, 23), (61, 219, 134),
-    (26, 147, 52), (0, 212, 187), (44, 153, 168), (0, 194, 255),
-    (52, 69, 147), (100, 115, 255), (0, 24, 236), (132, 56, 255),
-    (82, 0, 133), (203, 56, 255), (255, 149, 200), (255, 55, 199),
+# 20 visually distinct BGR colors, one per track ID slot
+COLORS = [
+    (56,  56,  255), (151, 157, 255), (31,  112, 255), (29,  178, 255),
+    (49,  210, 207), (10,  249,  72), (23,  204, 146), (134, 219,  61),
+    (52,  147,  26), (187, 212,   0), (168, 153,  44), (255, 194,   0),
+    (147,  69,  52), (255, 115, 100), (236,  24,   0), (255,  56, 132),
+    (133,   0,  82), (255,  56, 203), (200, 149, 255), (199,  55, 255),
 ]
 
 
-def get_color(track_id: int):
-    return PALETTE[int(track_id) % len(PALETTE)]
+def pick_color(track_id):
+    return COLORS[int(track_id) % len(COLORS)]
 
 
-def draw_box(frame, box, label: str, color, conf: float = None):
+def draw_label(frame, box, text, color):
     x1, y1, x2, y2 = map(int, box)
     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-    text = f"{label} {conf:.0%}" if conf else label
-    (w, h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-    cv2.rectangle(frame, (x1, y1 - h - 8), (x1 + w + 4, y1), color, -1)
-    cv2.putText(frame, text, (x1 + 2, y1 - 4),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+    (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+    cv2.rectangle(frame, (x1, y1 - th - 6), (x1 + tw + 4, y1), color, -1)
+    cv2.putText(frame, text, (x1 + 2, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
 
 
-def run(source, model_name="yolov8n.pt", conf=0.4, track=True, save=False, classes=None):
-    if not YOLO_AVAILABLE:
-        print("ultralytics not installed. Run: pip install ultralytics")
-        return
-
+def run(source, model_name, conf_thresh, use_tracking, save_output, filter_classes):
     model = YOLO(model_name)
-    cap = cv2.VideoCapture(0 if source is None else source)
+    cap   = cv2.VideoCapture(0 if source is None else source)
 
     if not cap.isOpened():
-        print(f"Cannot open source: {source}")
+        print(f"Could not open: {source or 'webcam'}")
         return
 
-    fps_history = []
-    track_history = defaultdict(list)
+    writer       = None
+    fps_buf      = []
+    trail_points = defaultdict(list)
 
-    writer = None
-    if save:
+    if save_output:
+        w  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h  = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         writer = cv2.VideoWriter("output_tracked.mp4", fourcc, 20, (w, h))
 
-    print("Press 'q' to quit, 's' to save a screenshot.")
+    print("Running — press Q to quit, S to screenshot.")
 
     while True:
         t0 = time.time()
-        ret, frame = cap.read()
-        if not ret:
+        ok, frame = cap.read()
+        if not ok:
             break
 
-        if track:
-            results = model.track(frame, persist=True, conf=conf, classes=classes, verbose=False)
+        if use_tracking:
+            results = model.track(frame, persist=True, conf=conf_thresh,
+                                  classes=filter_classes, verbose=False)
         else:
-            results = model(frame, conf=conf, classes=classes, verbose=False)
+            results = model(frame, conf=conf_thresh, classes=filter_classes, verbose=False)
 
-        result = results[0]
+        counts = defaultdict(int)
 
-        object_counts = defaultdict(int)
+        for box in (results[0].boxes or []):
+            cls_name   = model.names[int(box.cls)]
+            confidence = float(box.conf)
+            coords     = box.xyxy[0].tolist()
+            counts[cls_name] += 1
 
-        if result.boxes is not None:
-            for box in result.boxes:
-                cls_id = int(box.cls)
-                cls_name = model.names[cls_id]
-                confidence = float(box.conf)
-                xyxy = box.xyxy[0].tolist()
-                object_counts[cls_name] += 1
+            if use_tracking and box.id is not None:
+                tid   = int(box.id)
+                color = pick_color(tid)
+                label = f"{cls_name} #{tid}  {confidence:.0%}"
+                draw_label(frame, coords, label, color)
 
-                if track and box.id is not None:
-                    tid = int(box.id)
-                    color = get_color(tid)
-                    draw_box(frame, xyxy, f"{cls_name} #{tid}", color, confidence)
-                    cx, cy = int((xyxy[0] + xyxy[2]) / 2), int((xyxy[1] + xyxy[3]) / 2)
-                    track_history[tid].append((cx, cy))
-                    track_history[tid] = track_history[tid][-30:]
-                    pts = track_history[tid]
-                    for i in range(1, len(pts)):
-                        cv2.line(frame, pts[i - 1], pts[i], color, 2)
-                else:
-                    draw_box(frame, xyxy, cls_name, (0, 200, 255), confidence)
+                cx = int((coords[0] + coords[2]) / 2)
+                cy = int((coords[1] + coords[3]) / 2)
+                trail_points[tid].append((cx, cy))
+                trail_points[tid] = trail_points[tid][-30:]
 
-        elapsed = time.time() - t0
-        fps = 1.0 / elapsed if elapsed > 0 else 0
-        fps_history.append(fps)
-        if len(fps_history) > 30:
-            fps_history.pop(0)
-        avg_fps = sum(fps_history) / len(fps_history)
+                for i in range(1, len(trail_points[tid])):
+                    cv2.line(frame, trail_points[tid][i - 1], trail_points[tid][i], color, 2)
+            else:
+                draw_label(frame, coords, f"{cls_name}  {confidence:.0%}", (0, 200, 255))
 
-        cv2.putText(frame, f"FPS: {avg_fps:.1f}", (10, 28),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        # FPS
+        fps_buf.append(1.0 / max(time.time() - t0, 1e-6))
+        if len(fps_buf) > 30:
+            fps_buf.pop(0)
+        cv2.putText(frame, f"FPS {sum(fps_buf)/len(fps_buf):.1f}",
+                    (10, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 0), 2)
 
-        y_offset = 55
-        for cls_name, cnt in object_counts.items():
-            cv2.putText(frame, f"{cls_name}: {cnt}", (10, y_offset),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
-            y_offset += 25
+        y = 52
+        for name, cnt in counts.items():
+            cv2.putText(frame, f"{name}: {cnt}", (10, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 200, 255), 2)
+            y += 24
 
-        cv2.imshow("YOLOv8 Object Detection & Tracking", frame)
-
+        cv2.imshow("Detection & Tracking", frame)
         if writer:
             writer.write(frame)
 
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
-        elif key == ord("s"):
+        if key == ord("s"):
             cv2.imwrite("screenshot.jpg", frame)
             print("Screenshot saved.")
 
@@ -135,22 +127,22 @@ def run(source, model_name="yolov8n.pt", conf=0.4, track=True, save=False, class
 
 
 def main():
-    parser = argparse.ArgumentParser(description="YOLOv8 Real-time Object Detection & Tracking")
-    parser.add_argument("--source", default=None, help="Video path or image path (default: webcam)")
-    parser.add_argument("--model", default="yolov8n.pt", help="YOLO model (yolov8n/s/m/l/x.pt)")
-    parser.add_argument("--conf", type=float, default=0.4, help="Confidence threshold")
-    parser.add_argument("--no-track", action="store_true", help="Disable object tracking")
-    parser.add_argument("--save", action="store_true", help="Save output video")
-    parser.add_argument("--classes", nargs="+", type=int, default=None, help="Filter class IDs")
-    args = parser.parse_args()
+    p = argparse.ArgumentParser(description="YOLOv8 object detection & tracking")
+    p.add_argument("--source",   default=None,        help="Video/image path (omit for webcam)")
+    p.add_argument("--model",    default="yolov8n.pt", help="YOLO weights file")
+    p.add_argument("--conf",     type=float, default=0.4, help="Confidence cutoff")
+    p.add_argument("--no-track", action="store_true",  help="Skip ByteTrack tracking")
+    p.add_argument("--save",     action="store_true",  help="Save output to output_tracked.mp4")
+    p.add_argument("--classes",  nargs="+", type=int, default=None, help="COCO class IDs to keep")
+    args = p.parse_args()
 
     run(
-        source=args.source,
-        model_name=args.model,
-        conf=args.conf,
-        track=not args.no_track,
-        save=args.save,
-        classes=args.classes,
+        source        = args.source,
+        model_name    = args.model,
+        conf_thresh   = args.conf,
+        use_tracking  = not args.no_track,
+        save_output   = args.save,
+        filter_classes= args.classes,
     )
 
 
