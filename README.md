@@ -73,4 +73,4 @@ codealpha_tasks/
 
 ---
 
-*Built with ❤️ as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship***
+*Built as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship***
