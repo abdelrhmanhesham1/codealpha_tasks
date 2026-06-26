@@ -373,54 +373,18 @@ if go:
             except Exception as e:
                 st.error(f"Translation failed — {e}")
 
-# ── result section ─────────────────────────────────────────────────────────────
+# ── result actions + slang info (shown below the two text areas) ───────────────
 if "translation" in st.session_state:
-    st.markdown("<hr>", unsafe_allow_html=True)
-
-    # show slang expansions if any
-    replacements = st.session_state.get("replacements", [])
+    res           = st.session_state["translation"]
+    replacements  = st.session_state.get("replacements", [])
     expanded_text = st.session_state.get("expanded_text")
 
-    if replacements:
-        seen = {}
-        for orig, full in replacements:
-            key = orig.lower()
-            if key not in seen:
-                seen[key] = (orig, full)
-
-        badges = "".join(
-            f'<span class="slang-badge">'
-            f'<b>{orig}</b>'
-            f'<span class="slang-arrow">→</span>'
-            f'{full}'
-            f'</span>'
-            for _, (orig, full) in seen.items()
-        )
-
-        st.markdown(f"""
-        <div class="expanded-box">
-          <div class="title">🔤 Slang expanded before translating</div>
-          <div style="margin-bottom:.6rem">{badges}</div>
-          <div class="expanded-text"><b>Expanded input:</b> {expanded_text}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # translation result
-    res = st.session_state["translation"]
-    st.markdown(f"""
-    <div class="result-card">
-      <div class="label">Translation → {dst_choice}</div>
-      <div class="result-text">{res}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:.8rem'></div>", unsafe_allow_html=True)
-
-    act1, act2, act3 = st.columns([2, 2, 4])
+    # action buttons
+    st.markdown("<div style='height:.4rem'></div>", unsafe_allow_html=True)
+    act1, act2, _ = st.columns([2, 2, 6])
     with act1:
-        if st.button("📋 Copy text", use_container_width=True):
+        if st.button("📋 Copy", use_container_width=True):
             st.code(res, language=None)
-
     with act2:
         if st.button("🔊 Read aloud", use_container_width=True):
             lang_code = st.session_state.get("dest_lang_code", "en")
@@ -433,9 +397,25 @@ if "translation" in st.session_state:
             except Exception as e:
                 st.warning(f"TTS unavailable for this language: {e}")
 
-    with act3:
-        if expanded_text:
-            st.caption(f"Translated the **expanded** version of your text")
+    # slang expansion summary
+    if replacements:
+        seen = {}
+        for orig, full in replacements:
+            if orig.lower() not in seen:
+                seen[orig.lower()] = (orig, full)
+
+        badges = "".join(
+            f'<span class="slang-badge"><b>{orig}</b>'
+            f'<span class="slang-arrow">→</span>{full}</span>'
+            for _, (orig, full) in seen.items()
+        )
+        st.markdown(f"""
+        <div class="expanded-box">
+          <div class="title">🔤 Slang expanded before translating</div>
+          <div style="margin-bottom:.6rem">{badges}</div>
+          <div class="expanded-text"><b>Expanded input:</b> {expanded_text}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ── footer ─────────────────────────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
