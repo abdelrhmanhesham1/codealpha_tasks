@@ -141,16 +141,9 @@ The app opens at **`http://localhost:8501`** in your browser automatically.
 
 ## 📸 Screenshots
 
-> *Run the app and add screenshots here to showcase the UI.*
-
 | Main Interface | Slang Expansion Result |
 |----------------|------------------------|
-| *(screenshot)* | *(screenshot)* |
-
-To add screenshots:
-1. Run the app: `python -m streamlit run app.py`
-2. Take a screenshot and save to `assets/screenshot1.png`
-3. Reference it: `![UI](assets/screenshot1.png)`
+| ![Main Interface](photos/translator1.png) | ![Slang Expansion](photos/translator2.png) |
 
 ---
 
