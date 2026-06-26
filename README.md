@@ -8,7 +8,7 @@
 
 | # | Task | Description | Tech |
 |---|------|-------------|------|
-| 1 | [🌐 Language Translation Tool](./task1_language_translation/) | Translate text across 100+ languages with auto-detection & TTS | Streamlit, Google Translate API, pyttsx3 |
+| 1 | [🌐 Language Translation Tool](./task1_language_translation/) | Translate text across 100+ languages with slang expansion, auto-detection & TTS | Streamlit, deep-translator, gTTS |
 | 2 | [🤖 FAQ Chatbot](./task2_faq_chatbot/) | NLP chatbot matching questions via TF-IDF + cosine similarity | Streamlit, NLTK, scikit-learn |
 | 3 | [🎵 Music Generation with AI](./task3_music_generation/) | LSTM model trained on MIDI data to compose original music | TensorFlow/Keras, music21, NumPy |
 | 4 | [🎯 Object Detection & Tracking](./task4_object_detection/) | Real-time YOLOv8 detection + ByteTrack multi-object tracking | Ultralytics YOLOv8, OpenCV |
