@@ -69,7 +69,7 @@ codealpha_tasks/
 
 - 🐙 **GitHub:** [abdelrhmanhesham1](https://github.com/abdelrhmanhesham1/codealpha_tasks)
 - 💼 **LinkedIn:** [Abdelrhman Hesham](https://www.linkedin.com/in/abdelrhman-hesham11/)
-- 📧 **Email:** gatebuddy11@gmail.com
+- 📧 **Email:** abdelrhman.hesham108@gmail.com
 
 ---
 
