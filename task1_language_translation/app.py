@@ -316,15 +316,17 @@ with col_left:
     st.caption(f"{len(source_text)} characters")
 
 with col_right:
-    # no key on the output box so Streamlit always uses the value we pass
+    # force-write into session_state BEFORE the widget reads it
+    # so the output always reflects the latest translation automatically
     output_text = st.session_state.get("translation", "")
+    st.session_state["_output_box"] = output_text
     st.text_area(
         "Translation",
-        value=output_text,
         height=220,
         placeholder="Translation appears here…",
         label_visibility="collapsed",
         disabled=not bool(output_text),
+        key="_output_box",
     )
 
 # ── options row ────────────────────────────────────────────────────────────────
