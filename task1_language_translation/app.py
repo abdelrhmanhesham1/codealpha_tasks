@@ -316,24 +316,16 @@ with col_left:
     st.caption(f"{len(source_text)} characters")
 
 with col_right:
-    if "translation" in st.session_state:
-        st.text_area(
-            "Translation",
-            value=st.session_state["translation"],
-            height=220,
-            label_visibility="collapsed",
-            key="result_display",
-        )
-    else:
-        st.text_area(
-            "Translation",
-            value="",
-            height=220,
-            placeholder="Translation appears here…",
-            label_visibility="collapsed",
-            key="result_empty",
-            disabled=True,
-        )
+    # no key on the output box so Streamlit always uses the value we pass
+    output_text = st.session_state.get("translation", "")
+    st.text_area(
+        "Translation",
+        value=output_text,
+        height=220,
+        placeholder="Translation appears here…",
+        label_visibility="collapsed",
+        disabled=not bool(output_text),
+    )
 
 # ── options row ────────────────────────────────────────────────────────────────
 opt_left, opt_right = st.columns([3, 3])
@@ -365,11 +357,10 @@ if go:
                     source=src_code, target=dest_code
                 ).translate(working_text)
 
-                st.session_state["translation"]      = translated
-                st.session_state["dest_lang_code"]   = dest_code
-                st.session_state["expanded_text"]    = working_text if found_replacements else None
-                st.session_state["replacements"]     = found_replacements
-                st.rerun()
+                st.session_state["translation"]    = translated
+                st.session_state["dest_lang_code"] = dest_code
+                st.session_state["expanded_text"]  = working_text if found_replacements else None
+                st.session_state["replacements"]   = found_replacements
             except Exception as e:
                 st.error(f"Translation failed — {e}")
 
