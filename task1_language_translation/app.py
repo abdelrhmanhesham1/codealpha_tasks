@@ -363,6 +363,7 @@ if go:
                 st.session_state["dest_lang_code"] = dest_code
                 st.session_state["expanded_text"]  = working_text if found_replacements else None
                 st.session_state["replacements"]   = found_replacements
+                st.rerun()
             except Exception as e:
                 st.error(f"Translation failed — {e}")
 
@@ -372,8 +373,7 @@ if "translation" in st.session_state:
     replacements  = st.session_state.get("replacements", [])
     expanded_text = st.session_state.get("expanded_text")
 
-    # action buttons
-    st.markdown("<div style='height:.4rem'></div>", unsafe_allow_html=True)
+    st.write("")
     act1, act2, _ = st.columns([2, 2, 6])
     with act1:
         if st.button("📋 Copy", use_container_width=True):
@@ -390,25 +390,19 @@ if "translation" in st.session_state:
             except Exception as e:
                 st.warning(f"TTS unavailable for this language: {e}")
 
-    # slang expansion summary
+    # slang expansion — shown with native Streamlit so it always renders
     if replacements:
         seen = {}
         for orig, full in replacements:
             if orig.lower() not in seen:
                 seen[orig.lower()] = (orig, full)
 
-        badges = "".join(
-            f'<span class="slang-badge"><b>{orig}</b>'
-            f'<span class="slang-arrow">→</span>{full}</span>'
-            for _, (orig, full) in seen.items()
-        )
-        st.markdown(f"""
-        <div class="expanded-box">
-          <div class="title">🔤 Slang expanded before translating</div>
-          <div style="margin-bottom:.6rem">{badges}</div>
-          <div class="expanded-text"><b>Expanded input:</b> {expanded_text}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown("**🔤 Slang / abbreviations expanded before translating**")
+            for _, (orig, full) in seen.items():
+                st.markdown(f"- **`{orig}`** → {full}")
+            if expanded_text:
+                st.caption(f"Translated as: _{expanded_text}_")
 
 # ── footer ─────────────────────────────────────────────────────────────────────
 st.markdown("<hr>", unsafe_allow_html=True)
