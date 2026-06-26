@@ -1,14 +1,14 @@
 # 🎯 Real-Time Object Detection & Tracking
 
-> A real-time computer vision system using YOLOv8 for object detection and ByteTrack for multi-object tracking — built for the CodeAlpha AI Internship.
+> A production-grade computer vision system using YOLOv8 for object detection and ByteTrack for multi-object tracking — built for the CodeAlpha AI Internship.
 
 ---
 
 ## 📌 Project Overview
 
-This project implements a production-grade **real-time object detection and tracking** pipeline using the state-of-the-art **YOLOv8** model and **ByteTrack** tracking algorithm. The system processes live webcam feeds or video files frame-by-frame, detects objects from 80 COCO classes, assigns persistent tracking IDs, and renders bounding boxes with smooth trail visualization.
+This project implements a real-time **object detection and tracking** pipeline that processes live webcam feeds or video files frame-by-frame. Using the state-of-the-art **YOLOv8** model, it detects objects from 80 COCO classes with high accuracy. **ByteTrack** then assigns persistent tracking IDs across frames, maintaining identity even through occlusion.
 
-Designed for real-world use cases including surveillance, traffic monitoring, crowd analysis, and robotics.
+The system renders color-coded bounding boxes, motion trails, live FPS, and per-class object counts — making it suitable for real-world applications like surveillance, traffic analysis, crowd monitoring, and robotics.
 
 ---
 
@@ -16,9 +16,9 @@ Designed for real-world use cases including surveillance, traffic monitoring, cr
 
 | Layer | Technology |
 |-------|-----------|
-| Object Detection | [YOLOv8](https://docs.ultralytics.com/) (Ultralytics) — `yolov8n/s/m/l/x.pt` |
-| Object Tracking | ByteTrack (built into Ultralytics `model.track()`) |
-| Video I/O | [OpenCV](https://opencv.org/) — `cv2` |
+| Object Detection | [YOLOv8](https://docs.ultralytics.com/) — Ultralytics (`yolov8n/s/m/l/x.pt`) |
+| Object Tracking | **ByteTrack** — built into `ultralytics model.track()` |
+| Video I/O | [OpenCV](https://opencv.org/) — frame capture, rendering, saving |
 | Numerical Computing | [NumPy](https://numpy.org/) |
 | Language | Python 3.9+ |
 
@@ -27,88 +27,122 @@ Designed for real-world use cases including surveillance, traffic monitoring, cr
 ## 🏗 Architecture
 
 ```
-Video Source (Webcam / File)
+Video Source
+  ├── Webcam (cv2.VideoCapture(0))
+  └── Video / Image file
         │
         ▼
-OpenCV Frame Capture (cv2.VideoCapture)
+OpenCV Frame Capture
         │
         ▼
-YOLOv8 Inference (Ultralytics)
+YOLOv8 Inference
   model.track(frame, persist=True)
         │
         ▼
-Detection Results
-  - Bounding boxes (xyxy)
-  - Class names
-  - Confidence scores
-  - Track IDs (ByteTrack)
+Detection Results per Frame
+  ├── Bounding boxes  (xyxy)
+  ├── Class names     (80 COCO classes)
+  ├── Confidence scores
+  └── Track IDs       (ByteTrack)
         │
         ▼
 Visualization Layer
-  - Color-coded bounding boxes (per track ID)
-  - Label: class + track ID + confidence
-  - Trail lines (last 30 center points)
-  - FPS overlay
-  - Per-class object count
+  ├── Color-coded boxes       (unique color per track ID)
+  ├── Label: class + ID + confidence
+  ├── Motion trail lines      (last 30 center points)
+  ├── FPS counter             (rolling 30-frame average)
+  └── Per-class object count  (live overlay)
         │
-        ▼
-Display (cv2.imshow) / Save (VideoWriter)
+   ┌────┴────┐
+   ▼         ▼
+cv2.imshow  VideoWriter
+(display)   (save MP4)
 ```
 
-**ByteTrack** links detections across frames using IoU-based association, maintaining persistent IDs even through brief occlusions.
+**ByteTrack** links detections across frames using IoU-based association, maintaining persistent IDs even through brief occlusions or overlaps.
 
 ---
 
 ## ✨ Features
 
-- **YOLOv8 Detection** — 80 COCO object classes, multiple model sizes (nano to x-large)
-- **ByteTrack Multi-Object Tracking** — stable IDs across frames, handles occlusion
-- **Motion Trails** — 30-frame trajectory line per tracked object
-- **Per-ID Color Coding** — each track ID gets a unique color from a 20-color palette
-- **FPS Counter** — rolling average FPS displayed on screen
-- **Object Count Overlay** — live count per class displayed each frame
-- **Screenshot** — press `s` to save the current frame as `screenshot.jpg`
-- **Save Output** — `--save` flag records tracking video to `output_tracked.mp4`
-- **Class Filtering** — `--classes` flag to detect only specific COCO class IDs
-- **Configurable Confidence** — `--conf` threshold tuning
-- **Model Size Selection** — `--model yolov8n/s/m/l/x.pt` for speed vs. accuracy tradeoff
+- ⚡ **YOLOv8 Detection** — 80 COCO object classes, 5 model size options (nano → x-large)
+- 🔢 **ByteTrack Multi-Object Tracking** — stable IDs across frames, handles occlusion
+- 🎨 **Per-ID Color Coding** — 20-color palette, unique color per tracked object
+- 🛤 **Motion Trails** — 30-frame trajectory lines drawn per tracked object
+- 📊 **Live Stats Overlay** — rolling-average FPS + per-class object count
+- 📸 **Screenshot** — press `s` to save current frame as `screenshot.jpg`
+- 💾 **Save Output** — `--save` records the tracking session to `output_tracked.mp4`
+- 🎛 **Class Filtering** — `--classes` to detect only specific COCO class IDs
+- 🔧 **Confidence Threshold** — `--conf` for precision vs. recall tuning
+- 📦 **Auto Model Download** — YOLOv8 weights download automatically on first run
 
 ---
 
-## 🧪 Testing
+## 📁 Project Structure
 
-### Prerequisites
+```
+task4_object_detection/
+│
+├── detect.py               # Full detection + tracking pipeline
+├── requirements.txt        # Python dependencies
+├── output_tracked.mp4      # Saved tracking video (auto-generated with --save)
+├── screenshot.jpg          # Saved screenshot (press 's' during run)
+└── README.md               # Project documentation
+```
+
+---
+
+## ▶ How to Run the Project
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/<your-username>/codealpha_tasks.git
+cd codealpha_tasks/task4_object_detection
+```
+
+### 2. Create a virtual environment (recommended)
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # macOS / Linux
+```
+
+### 3. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
-> YOLOv8 weights (`yolov8n.pt`) download automatically on first run (~6MB).
+> YOLOv8 weights (`yolov8n.pt`, ~6MB) download automatically on first run.
 
-### Run on Webcam
+### 4. Run on webcam
 ```bash
 python detect.py
 ```
 
-### Run on a Video File
+### 5. Run on a video file
 ```bash
 python detect.py --source path/to/video.mp4
 ```
 
-### Run on an Image (no tracking)
+### 6. Run on an image (no tracking)
 ```bash
 python detect.py --source path/to/image.jpg --no-track
 ```
 
 ### Advanced Options
 ```bash
-# Use larger model for better accuracy
+# Larger model for higher accuracy
 python detect.py --model yolov8m.pt --conf 0.5
 
-# Detect only people (class 0) and cars (class 2)
+# Detect only people (0) and cars (2)
 python detect.py --classes 0 2
 
-# Save tracking video output
+# Save the tracking output video
 python detect.py --source video.mp4 --save
 ```
+
+---
+
+## 🧪 Testing
 
 ### Keyboard Controls
 
@@ -119,47 +153,65 @@ python detect.py --source video.mp4 --save
 
 ### Model Size Reference
 
-| Model | Size | Speed | mAP |
-|-------|------|-------|-----|
-| yolov8n | ~6MB | Fastest | 37.3 |
-| yolov8s | ~22MB | Fast | 44.9 |
-| yolov8m | ~50MB | Medium | 50.2 |
-| yolov8l | ~87MB | Slower | 52.9 |
-| yolov8x | ~137MB | Slowest | 53.9 |
+| Model | File Size | Speed | mAP50-95 |
+|-------|-----------|-------|----------|
+| `yolov8n.pt` | ~6 MB | Fastest | 37.3 |
+| `yolov8s.pt` | ~22 MB | Fast | 44.9 |
+| `yolov8m.pt` | ~50 MB | Medium | 50.2 |
+| `yolov8l.pt` | ~87 MB | Slower | 52.9 |
+| `yolov8x.pt` | ~137 MB | Slowest | 53.9 |
+
+### Common Test Scenarios
+
+| Source | Expected Behavior |
+|--------|------------------|
+| Webcam | Real-time detection with FPS overlay |
+| `--source video.mp4` | Frame-by-frame detection + tracking |
+| `--classes 0` | Detects only people |
+| `--conf 0.7` | Only high-confidence detections shown |
+| `--no-track` | Bounding boxes without persistent IDs |
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Future Improvements
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/<your-username>/codealpha_tasks.git
-cd codealpha_tasks/task4_object_detection
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Run on webcam
-python detect.py
-```
+- [ ] Add **Deep SORT** tracking for improved re-identification after long occlusion
+- [ ] Build a **Streamlit web UI** for browser-based video upload and detection
+- [ ] Implement **zone counting** — count objects entering/leaving a defined region
+- [ ] Add **speed estimation** from tracked trajectories
+- [ ] Export detections to **JSON / CSV** for downstream analysis
+- [ ] Support **RTSP streams** for IP camera integration
+- [ ] Add **custom YOLO model training** on domain-specific datasets
 
 ---
 
-## 📁 Project Structure
+## 📸 Screenshots
 
-```
-task4_object_detection/
-├── detect.py           # Main detection + tracking pipeline
-├── requirements.txt    # Python dependencies
-└── README.md
-```
+> *Add screenshots or short GIFs of the detection in action here.*
 
----
+| Webcam Detection | Video File Tracking |
+|-----------------|---------------------|
+| *(screenshot)* | *(screenshot)* |
 
-## 🔍 Supported Object Classes (COCO)
-
-Person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light, fire hydrant, stop sign, bench, bird, cat, dog, horse, cow, elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee, skis, sports ball, kite, baseball bat, tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple, sandwich, pizza, donut, cake, chair, couch, potted plant, bed, dining table, toilet, TV, laptop, mouse, remote, keyboard, cell phone, microwave, oven, sink, refrigerator, book, clock, vase, scissors, teddy bear, hair drier, toothbrush.
+To add screenshots:
+1. Run `python detect.py` and press `s` to capture
+2. Screenshots save as `screenshot.jpg` automatically
+3. Move to `assets/` and link: `![Detection](assets/screenshot.jpg)`
 
 ---
 
-*Built as part of the **CodeAlpha AI Internship** — Task 4*
+## 🔍 Supported COCO Object Classes (80 classes)
+
+`person · bicycle · car · motorcycle · airplane · bus · train · truck · boat · traffic light · fire hydrant · stop sign · parking meter · bench · bird · cat · dog · horse · sheep · cow · elephant · bear · zebra · giraffe · backpack · umbrella · handbag · tie · suitcase · frisbee · skis · snowboard · sports ball · kite · baseball bat · baseball glove · skateboard · surfboard · tennis racket · bottle · wine glass · cup · fork · knife · spoon · bowl · banana · apple · sandwich · orange · broccoli · carrot · hot dog · pizza · donut · cake · chair · couch · potted plant · bed · dining table · toilet · TV · laptop · mouse · remote · keyboard · cell phone · microwave · oven · toaster · sink · refrigerator · book · clock · vase · scissors · teddy bear · hair drier · toothbrush`
+
+---
+
+## 🔗 Social Links
+
+- 🐙 **GitHub Repo:** [codealpha_tasks](https://github.com/<your-username>/codealpha_tasks)
+- 💼 **LinkedIn:** [Your LinkedIn Profile](https://linkedin.com/in/<your-linkedin>)
+- 📧 **Email:** gatebuddy11@gmail.com
+
+---
+
+*Built with ❤️ as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship** — Task 4*

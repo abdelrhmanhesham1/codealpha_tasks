@@ -1,6 +1,6 @@
 # 🧠 CodeAlpha AI Internship Tasks
 
-> Four complete AI projects built during the **CodeAlpha Artificial Intelligence Internship** — covering NLP, computer vision, generative AI, and deep learning.
+> Four complete AI projects built during the **CodeAlpha Artificial Intelligence Internship** — spanning NLP, computer vision, generative AI, and deep learning.
 
 ---
 
@@ -8,40 +8,69 @@
 
 | # | Task | Description | Tech |
 |---|------|-------------|------|
-| 1 | [Language Translation Tool](./task1_language_translation/) | Translate text across 100+ languages with TTS | Streamlit, Google Translate API, pyttsx3 |
-| 2 | [FAQ Chatbot](./task2_faq_chatbot/) | NLP chatbot matching questions via cosine similarity | Streamlit, NLTK, scikit-learn, TF-IDF |
-| 3 | [Music Generation with AI](./task3_music_generation/) | LSTM model that generates MIDI music | TensorFlow/Keras, music21, NumPy |
-| 4 | [Object Detection & Tracking](./task4_object_detection/) | Real-time YOLOv8 detection + ByteTrack tracking | Ultralytics YOLOv8, OpenCV |
+| 1 | [🌐 Language Translation Tool](./task1_language_translation/) | Translate text across 100+ languages with auto-detection & TTS | Streamlit, Google Translate API, pyttsx3 |
+| 2 | [🤖 FAQ Chatbot](./task2_faq_chatbot/) | NLP chatbot matching questions via TF-IDF + cosine similarity | Streamlit, NLTK, scikit-learn |
+| 3 | [🎵 Music Generation with AI](./task3_music_generation/) | LSTM model trained on MIDI data to compose original music | TensorFlow/Keras, music21, NumPy |
+| 4 | [🎯 Object Detection & Tracking](./task4_object_detection/) | Real-time YOLOv8 detection + ByteTrack multi-object tracking | Ultralytics YOLOv8, OpenCV |
 
 ---
 
 ## 🚀 Quick Start
 
-Each project has its own folder with a `requirements.txt` and detailed `README.md`. Navigate into any task folder and install its dependencies:
-
-```bash
-cd task1_language_translation   # or task2, task3, task4
-pip install -r requirements.txt
-```
-
-See the individual README for run instructions.
-
----
-
-## 🛠 Setup (All Projects)
+Each task is self-contained with its own `requirements.txt` and `README.md`.
 
 ```bash
 git clone https://github.com/<your-username>/codealpha_tasks.git
-cd codealpha_tasks
-```
 
-Python 3.9+ recommended. Use a virtual environment:
-```bash
-python -m venv venv
-venv\Scripts\activate   # Windows
-pip install -r task1_language_translation/requirements.txt  # per task
+# Navigate to any task
+cd codealpha_tasks/task1_language_translation
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run (see each task's README for full instructions)
+streamlit run app.py
 ```
 
 ---
 
-*Built with ❤️ as part of the **CodeAlpha AI Internship***
+## 📁 Repository Structure
+
+```
+codealpha_tasks/
+│
+├── task1_language_translation/
+│   ├── app.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── task2_faq_chatbot/
+│   ├── chatbot.py
+│   ├── faqs.json
+│   ├── requirements.txt
+│   └── README.md
+│
+├── task3_music_generation/
+│   ├── generate.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── task4_object_detection/
+│   ├── detect.py
+│   ├── requirements.txt
+│   └── README.md
+│
+└── README.md
+```
+
+---
+
+## 🔗 Social Links
+
+- 🐙 **GitHub:** [codealpha_tasks](https://github.com/<your-username>/codealpha_tasks)
+- 💼 **LinkedIn:** [Your LinkedIn Profile](https://linkedin.com/in/<your-linkedin>)
+- 📧 **Email:** gatebuddy11@gmail.com
+
+---
+
+*Built with ❤️ as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship***
