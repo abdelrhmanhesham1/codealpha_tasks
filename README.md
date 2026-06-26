@@ -20,7 +20,7 @@
 Each task is self-contained with its own `requirements.txt` and `README.md`.
 
 ```bash
-git clone https://github.com/<your-username>/codealpha_tasks.git
+git clone https://github.com/abdelrhmanhesham1/codealpha_tasks.git
 
 # Navigate to any task
 cd codealpha_tasks/task1_language_translation
@@ -67,8 +67,8 @@ codealpha_tasks/
 
 ## 🔗 Social Links
 
-- 🐙 **GitHub:** [codealpha_tasks](https://github.com/<your-username>/codealpha_tasks)
-- 💼 **LinkedIn:** [Your LinkedIn Profile](https://linkedin.com/in/<your-linkedin>)
+- 🐙 **GitHub:** [abdelrhmanhesham1](https://github.com/abdelrhmanhesham1/codealpha_tasks)
+- 💼 **LinkedIn:** [Abdelrhman Hesham](https://www.linkedin.com/in/abdelrhman-hesham11/)
 - 📧 **Email:** gatebuddy11@gmail.com
 
 ---

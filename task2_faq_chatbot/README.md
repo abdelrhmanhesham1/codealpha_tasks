@@ -46,7 +46,7 @@ Cosine Similarity
         │
         ▼
 Best Match Selection
-  ├── Score ≥ 0.15 → return matched answer
+  ├── Score >= 0.15 → return matched answer
   └── Score < 0.15 → fallback message
         │
         ▼
@@ -89,7 +89,7 @@ task2_faq_chatbot/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/<your-username>/codealpha_tasks.git
+git clone https://github.com/abdelrhmanhesham1/codealpha_tasks.git
 cd codealpha_tasks/task2_faq_chatbot
 ```
 
@@ -164,8 +164,8 @@ To add screenshots:
 
 ## 🔗 Social Links
 
-- 🐙 **GitHub Repo:** [codealpha_tasks](https://github.com/<your-username>/codealpha_tasks)
-- 💼 **LinkedIn:** [Your LinkedIn Profile](https://linkedin.com/in/<your-linkedin>)
+- 🐙 **GitHub Repo:** [codealpha_tasks](https://github.com/abdelrhmanhesham1/codealpha_tasks)
+- 💼 **LinkedIn:** [Abdelrhman Hesham](https://www.linkedin.com/in/abdelrhman-hesham11/)
 - 📧 **Email:** gatebuddy11@gmail.com
 
 ---
