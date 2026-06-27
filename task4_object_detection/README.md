@@ -183,22 +183,6 @@ python detect.py --source video.mp4 --save
 - [ ] Support **RTSP streams** for IP camera integration
 - [ ] Add **custom YOLO model training** on domain-specific datasets
 
----
-
-## 📸 Screenshots
-
-> *Add screenshots or short GIFs of the detection in action here.*
-
-| Webcam Detection | Video File Tracking |
-|-----------------|---------------------|
-| *(screenshot)* | *(screenshot)* |
-
-To add screenshots:
-1. Run `python detect.py` and press `s` to capture
-2. Screenshots save as `screenshot.jpg` automatically
-3. Move to `assets/` and link: `![Detection](assets/screenshot.jpg)`
-
----
 
 ## 🔍 Supported COCO Object Classes (80 classes)
 
