@@ -173,22 +173,7 @@ score.show("midi")   # opens in MuseScore, GarageBand, or your system MIDI playe
 - [ ] Add **MIDI-to-MP3 conversion** via `FluidSynth` for direct audio output
 - [ ] Train on **genre-specific datasets** (jazz, classical, lo-fi) with switchable presets
 
----
 
-## 📸 Screenshots
-
-> *Add screenshots or audio waveform images of your generated MIDI here.*
-
-| Training Progress | Generated MIDI in MuseScore |
-|-------------------|-----------------------------|
-| *(screenshot)* | *(screenshot)* |
-
-To add screenshots:
-1. Run training and save loss curves
-2. Open generated `.mid` in MuseScore and screenshot
-3. Save to `assets/` and link here
-
----
 
 ## 🔗 Social Links
 
