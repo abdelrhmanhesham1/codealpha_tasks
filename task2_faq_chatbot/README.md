@@ -153,7 +153,7 @@ To add more topics, append entries to `faqs.json` — no retraining needed:
 
 | Chat Interface | Sidebar Topics |
 |----------------|----------------|
-| *(screenshot)* | *(screenshot)* |
+| ![Main Interface](photos/chatbot2.png) | ![Sidebar Topics](photos/chatbot1.png) |
 
 To add screenshots:
 1. Run the app: `streamlit run chatbot.py`

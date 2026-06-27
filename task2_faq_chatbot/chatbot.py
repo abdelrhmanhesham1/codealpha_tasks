@@ -7,178 +7,70 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 
-nltk.download("stopwords", quiet=True)
-from nltk.corpus import stopwords
-
-# ── page config ────────────────────────────────────────────────────────────────
+# ── PAGE CONFIG ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AI FAQ Chatbot",
+    page_title="AI/ML FAQ Chatbot",
     page_icon="🤖",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
-# ── CSS ────────────────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+# ── DATA PATHS & NLP INITIALIZATION ───────────────────────────────────────────
+FAQ_PATH = os.path.join(os.path.dirname(__file__), "faqs.json")
 
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-#MainMenu, footer, header { visibility: hidden; }
-.block-container { padding: 0 1.5rem 3rem 1.5rem; max-width: 780px; }
+# Download NLTK resources and setup preprocessing pipeline
+try:
+    nltk.download("stopwords", quiet=True)
+    nltk.download("punkt", quiet=True)
+    nltk.download("wordnet", quiet=True)
+    nltk.download("omw-1.4", quiet=True)
+    from nltk.corpus import stopwords
+    from nltk.tokenize import word_tokenize
+    from nltk.stem import WordNetLemmatizer
+    
+    lemmatizer = WordNetLemmatizer()
+    STOPWORDS = set(stopwords.words("english"))
+    has_nltk = True
+except Exception:
+    has_nltk = False
 
-/* hero */
-.hero {
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-    border-radius: 20px;
-    padding: 2.4rem 2.8rem;
-    margin-bottom: 2rem;
-    color: white;
-}
-.hero h1 { font-size: 2rem; font-weight: 700; margin: 0 0 .4rem 0; }
-.hero p  { opacity: .8; margin: 0; font-size: .95rem; }
+def clean(t):
+    if not t:
+        return ""
+    t = t.lower()
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    if has_nltk:
+        try:
+            tokens = word_tokenize(t)
+            cleaned = [
+                lemmatizer.lemmatize(w)
+                for w in tokens
+                if w not in STOPWORDS and len(w) > 1
+            ]
+            return " ".join(cleaned)
+        except Exception:
+            pass
+    # Fallback/Basic cleaning
+    words = t.split()
+    stop_words = STOPWORDS if 'STOPWORDS' in globals() else set()
+    return " ".join(w for w in words if w not in stop_words and len(w) > 1)
 
-/* search bar wrapper */
-.search-wrap {
-    position: relative;
-    margin-bottom: 1.2rem;
-}
-
-/* chips */
-.chips-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.8rem; }
-.chip {
-    background: #f0f4ff;
-    color: #3b4fd8;
-    border: 1.5px solid #c7d2fe;
-    border-radius: 999px;
-    padding: .3rem .9rem;
-    font-size: .8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background .15s;
-    display: inline-block;
-}
-.chip:hover { background: #c7d2fe; }
-
-/* answer bubble */
-.bot-bubble {
-    background: #fff;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 0 18px 18px 18px;
-    padding: 1.4rem 1.6rem;
-    margin: .5rem 0 .8rem 0;
-    box-shadow: 0 4px 20px rgba(0,0,0,.07);
-    position: relative;
-}
-.bot-bubble::before {
-    content: "🤖";
-    position: absolute;
-    top: -14px;
-    left: 0;
-    font-size: 1.2rem;
-}
-.bot-bubble .answer-text {
-    font-size: 1rem;
-    color: #111827;
-    line-height: 1.75;
-}
-.bot-bubble .meta {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    margin-top: .9rem;
-    flex-wrap: wrap;
-}
-.conf-pill {
-    font-size: .75rem;
-    font-weight: 600;
-    padding: .2rem .7rem;
-    border-radius: 999px;
-}
-.conf-high   { background: #d1fae5; color: #065f46; }
-.conf-medium { background: #fef3c7; color: #92400e; }
-.conf-low    { background: #fee2e2; color: #991b1b; }
-.matched-q {
-    font-size: .78rem;
-    color: #6b7280;
-    font-style: italic;
-}
-
-/* fallback bubble */
-.fallback-bubble {
-    background: #fafafa;
-    border: 1.5px dashed #d1d5db;
-    border-radius: 0 18px 18px 18px;
-    padding: 1.2rem 1.5rem;
-    color: #6b7280;
-    font-size: .95rem;
-    margin: .5rem 0 .8rem 0;
-}
-
-/* section label */
-.section-label {
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .07em;
-    color: #9ca3af;
-    margin-bottom: .7rem;
-}
-
-/* input tweaks */
-.stTextInput input {
-    border-radius: 12px !important;
-    border: 1.5px solid #e5e7eb !important;
-    padding: .75rem 1rem !important;
-    font-size: 1rem !important;
-    transition: border-color .2s;
-}
-.stTextInput input:focus {
-    border-color: #3b4fd8 !important;
-    box-shadow: 0 0 0 3px rgba(59,79,216,.12) !important;
-}
-
-/* button */
-.stButton > button {
-    background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: .65rem 1.8rem !important;
-    font-weight: 600 !important;
-    font-size: .95rem !important;
-    box-shadow: 0 4px 15px rgba(15,32,39,.3) !important;
-    transition: opacity .2s, transform .1s !important;
-}
-.stButton > button:hover  { opacity: .88 !important; transform: translateY(-1px) !important; }
-
-hr { border: none; border-top: 1.5px solid #f3f4f6; margin: 1.2rem 0; }
-</style>
-""", unsafe_allow_html=True)
-
-# ── data / model ───────────────────────────────────────────────────────────────
-STOPWORDS = set(stopwords.words("english"))
-FAQ_PATH  = os.path.join(os.path.dirname(__file__), "faqs.json")
-
+# ── LOAD BOT DATA ─────────────────────────────────────────────────────────────
 @st.cache_resource
 def load_bot():
     with open(FAQ_PATH, encoding="utf-8") as f:
         faqs = json.load(f)
 
-    def clean(t):
-        t = t.lower()
-        t = re.sub(r"[^a-z0-9\s]", "", t)
-        return " ".join(w for w in t.split() if w not in STOPWORDS)
-
     questions = [x["question"] for x in faqs]
     answers   = [x["answer"]   for x in faqs]
     vec = TfidfVectorizer()
     mat = vec.fit_transform([clean(q) for q in questions])
-    return faqs, questions, answers, vec, mat, clean
+    return faqs, questions, answers, vec, mat
 
-faqs, questions, answers, vec, mat, clean = load_bot()
+faqs, questions, answers, vec, mat = load_bot()
 
-def ask(query, cutoff=0.15):
+# ── SIMILARITY MATCHING ───────────────────────────────────────────────────────
+def ask(query, cutoff=0.18):
     processed = clean(query)
     if not processed:
         return None, 0.0, None
@@ -189,89 +81,286 @@ def ask(query, cutoff=0.15):
         return None, score, None
     return answers[best], score, questions[best]
 
-# ── hero ───────────────────────────────────────────────────────────────────────
+# ── CSS CUSTOM STYLING (Premium Aesthetics) ───────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+/* Typography & General */
+html, body, [class*="css"] {
+    font-family: 'Outfit', sans-serif;
+}
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 1.5rem 1.5rem 3rem 1.5rem; max-width: 800px; }
+
+/* Hero Card */
+.hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 20px;
+    padding: 2.2rem;
+    margin-bottom: 2rem;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+.hero::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+    pointer-events: none;
+}
+.hero h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem 0;
+    background: linear-gradient(to right, #6366f1, #a855f7, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.hero p {
+    opacity: 0.85;
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* Section labels */
+.section-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #64748b;
+    margin-top: 1rem;
+    margin-bottom: 0.8rem;
+}
+
+/* Quick Topic Chips Styling */
+div[data-testid="stHorizontalBlock"] button {
+    background: #f1f5f9 !important;
+    color: #4f46e5 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 20px !important;
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+div[data-testid="stHorizontalBlock"] button:hover {
+    background: #e0e7ff !important;
+    color: #3730a3 !important;
+    border-color: #818cf8 !important;
+    transform: translateY(-1px);
+}
+div[data-testid="stHorizontalBlock"] button:active {
+    transform: translateY(0);
+}
+
+/* Sidebar Custom Styling */
+section[data-testid="stSidebar"] {
+    background-color: #f8fafc !important;
+}
+section[data-testid="stSidebar"] button {
+    text-align: left !important;
+    justify-content: flex-start !important;
+    background-color: #ffffff !important;
+    color: #334155 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 10px !important;
+    font-size: 0.85rem !important;
+    padding: 0.6rem 0.8rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    height: auto !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02) !important;
+    transition: all 0.2s ease !important;
+}
+section[data-testid="stSidebar"] button:hover {
+    background-color: #f1f5f9 !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+    transform: translateX(2px);
+}
+
+/* Bot Response styling additions */
+.meta {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+}
+.conf-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    display: inline-block;
+}
+.conf-high   { background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.conf-medium { background-color: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
+.conf-low    { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.matched-q {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+/* Chat Input Styling */
+div[data-testid="stChatInput"] {
+    border-radius: 16px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Custom separator */
+hr {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 1.5rem 0;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ── HERO & HEADER ─────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
-  <h1>🤖 AI/ML FAQ Assistant</h1>
-  <p>Ask anything about artificial intelligence, machine learning, or deep learning.</p>
+  <h1>🤖 AI & ML Chatbot Assistant</h1>
+  <p>Learn about Artificial Intelligence, Machine Learning, Deep Learning, and NLP. Click on quick topics or ask any custom question below!</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── search bar ─────────────────────────────────────────────────────────────────
-col_inp, col_btn = st.columns([5, 1])
-with col_inp:
-    query = st.text_input(
-        "search",
-        placeholder="e.g. What is deep learning?",
-        label_visibility="collapsed",
-        key="query_input",
-    )
-with col_btn:
-    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-    search = st.button("Ask →", use_container_width=True)
+# ── QUICK CHIPS ───────────────────────────────────────────────────────────────
+st.markdown('<div class="section-label">⚡ Quick Topics</div>', unsafe_allow_html=True)
 
-# ── topic chips ────────────────────────────────────────────────────────────────
-st.markdown('<div class="section-label">Browse topics</div>', unsafe_allow_html=True)
+quick_topics = [
+    ("Artificial Intelligence", "What is artificial intelligence?"),
+    ("Machine Learning", "What is machine learning?"),
+    ("Deep Learning", "What is deep learning?"),
+    ("Neural Networks", "What is a neural network?"),
+    ("Natural Language Processing", "What is natural language processing NLP?"),
+    ("Computer Vision", "What is computer vision?"),
+    ("How Chatbots Work", "How does a chatbot work?"),
+    ("Cosine Similarity", "What is cosine similarity?")
+]
 
-chips_html = '<div class="chips-row">'
-for faq in faqs:
-    short = faq["question"].replace("What is ", "").replace("?", "").strip()
-    chips_html += f'<span class="chip">{short}</span>'
-chips_html += "</div>"
-st.markdown(chips_html, unsafe_allow_html=True)
+cols = st.columns(4)
+for idx, (label, question) in enumerate(quick_topics):
+    col = cols[idx % 4]
+    if col.button(label, key=f"chip_{idx}", use_container_width=True):
+        st.session_state.pending_query = question
+        st.rerun()
 
-# ── query processing ───────────────────────────────────────────────────────────
-active_query = query if (search or query) and query.strip() else None
+st.markdown("<hr>", unsafe_allow_html=True)
 
-if "last_query" not in st.session_state:
-    st.session_state["last_query"]  = None
-    st.session_state["last_answer"] = None
-    st.session_state["last_score"]  = 0.0
-    st.session_state["last_match"]  = None
+# ── SESSION STATE INITIALIZATION ──────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "Hello! I am your interactive FAQ chatbot assistant. Ask me questions like: 'How do neural networks learn?' or 'Explain machine learning versus deep learning'. You can also select topics from the list or the sidebar catalog!",
+            "score": 1.0,
+            "matched": None,
+            "is_fallback": False
+        }
+    ]
 
-if search and query.strip():
-    answer, score, matched = ask(query)
-    st.session_state["last_query"]  = query
-    st.session_state["last_answer"] = answer
-    st.session_state["last_score"]  = score
-    st.session_state["last_match"]  = matched
+# ── RENDER CONVERSATION ────────────────────────────────────────────────────────
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
+        st.write(msg["content"])
+        
+        # Metadata / badge rendering for bot answers
+        if msg["role"] == "assistant" and msg.get("matched") is not None:
+            score = msg["score"]
+            conf_class = "conf-high" if score >= 0.6 else "conf-medium" if score >= 0.3 else "conf-low"
+            conf_label = f"{score:.0%} Match"
+            matched_str = f'Matched: "{msg["matched"]}"'
+            
+            st.markdown(f"""
+            <div class="meta">
+              <span class="conf-pill {conf_class}">{conf_label}</span>
+              <span class="matched-q">{matched_str}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        elif msg["role"] == "assistant" and msg.get("is_fallback"):
+            st.markdown("""
+            <div class="meta">
+              <span class="conf-pill conf-low">No confident match</span>
+              <span class="matched-q">Similarity below cutoff</span>
+            </div>
+            """, unsafe_allow_html=True)
 
-# ── result ─────────────────────────────────────────────────────────────────────
-if st.session_state["last_query"]:
-    st.markdown("<hr>", unsafe_allow_html=True)
-    st.markdown(f'<div class="section-label">Result for: "{st.session_state["last_query"]}"</div>',
-                unsafe_allow_html=True)
+# ── INTERACTION LOGIC ─────────────────────────────────────────────────────────
+# Get input from st.chat_input
+chat_input_val = st.chat_input("Ask a question about AI/ML...")
 
-    answer = st.session_state["last_answer"]
-    score  = st.session_state["last_score"]
-    matched = st.session_state["last_match"]
+# Determine the actual query (chat_input or a clicked button/chip)
+user_query = None
+if chat_input_val:
+    user_query = chat_input_val
+elif st.session_state.get("pending_query"):
+    user_query = st.session_state.pending_query
+    st.session_state.pending_query = None
 
+if user_query:
+    # Append user question
+    st.session_state.messages.append({"role": "user", "content": user_query})
+    
+    # Query chatbot
+    answer, score, matched = ask(user_query)
+    
     if answer:
-        conf_class = "conf-high" if score >= 0.6 else "conf-medium" if score >= 0.3 else "conf-low"
-        conf_label = f"{score:.0%} confidence"
-        matched_str = f'Matched: <em>"{matched}"</em>' if matched else ""
-
-        st.markdown(f"""
-        <div class="bot-bubble">
-          <div class="answer-text">{answer}</div>
-          <div class="meta">
-            <span class="conf-pill {conf_class}">{conf_label}</span>
-            <span class="matched-q">{matched_str}</span>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": answer,
+            "score": score,
+            "matched": matched,
+            "is_fallback": False
+        })
     else:
-        st.markdown("""
-        <div class="fallback-bubble">
-          🤔 &nbsp; I don't have a confident answer for that. Try rephrasing, or click one of the
-          topic chips above to explore what I know.
-        </div>
-        """, unsafe_allow_html=True)
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": "🤔 I couldn't find a confident answer for that question in my database. Try rephrasing, or check out the topics on the left or the catalog in the sidebar!",
+            "score": score,
+            "matched": None,
+            "is_fallback": True
+        })
+    
+    # Rerun to refresh the chat window and show updates immediately
+    st.rerun()
 
-# ── sidebar ────────────────────────────────────────────────────────────────────
+# ── SIDEBAR FAQ CATALOG ───────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("### 📚 All Topics")
-    for faq in faqs:
-        st.markdown(f"**Q:** {faq['question']}")
-        st.caption(faq['answer'][:80] + "…")
-        st.divider()
+    st.markdown("### 🧹 Actions")
+    if st.button("Clear Chat History", use_container_width=True):
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": "Chat history cleared. How can I help you today?",
+                "score": 1.0,
+                "matched": None,
+                "is_fallback": False
+            }
+        ]
+        st.rerun()
+        
+    st.markdown("<hr>", unsafe_allow_html=True)
+    st.markdown("### 📚 FAQ Catalog")
+    st.markdown("Click any FAQ to ask it instantly:")
+    
+    for idx, faq in enumerate(faqs):
+        if st.button(faq["question"], key=f"side_faq_{idx}", use_container_width=True):
+            st.session_state.pending_query = faq["question"]
+            st.rerun()
