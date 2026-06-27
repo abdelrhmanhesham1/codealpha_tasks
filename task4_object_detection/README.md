@@ -198,4 +198,4 @@ python detect.py --source video.mp4 --save
 
 ---
 
-*Built with ❤️ as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship** — Task 4*
+*Built as part of the **[CodeAlpha](https://codealpha.tech/) AI Internship** — Task 4*
